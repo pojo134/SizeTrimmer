@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Trigger specific fetches when tab is opened
                     if (targetId === 'history') fetchHistory();
                     if (targetId === 'settings') fetchConfig();
+                    if (targetId === 'logs') fetchLogs();
                 }
             });
         });
@@ -66,79 +67,92 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getIconForMedia(type) {
-        if (type === 'audio') return 'fa-music';
-        if (type === 'tv') return 'fa-tv';
-        return 'fa-film';
+        if (!type) return 'fa-file';
+        if (type.toLowerCase() === 'movie') return 'fa-film text-primary';
+        if (type.toLowerCase() === 'tv') return 'fa-tv text-accent';
+        if (type.toLowerCase() === 'music') return 'fa-music text-success';
+        return 'fa-file text-warning';
     }
+
 
     // --- API Calls & UI Updates ---
 
-    // Stats Update
+    // Dashboard Stats Update
     async function fetchStats() {
-        if (document.getElementById('dashboard').classList.contains('active')) {
-            try {
-                const res = await fetch('/api/stats');
-                const data = await res.json();
+        if (!document.getElementById('dashboard').classList.contains('active')) return;
 
-                if (data.dry_run) {
-                    document.getElementById('dry-run-banner').style.display = 'flex';
-                } else {
-                    document.getElementById('dry-run-banner').style.display = 'none';
-                }
+        try {
+            const res = await fetch('/api/stats');
+            const data = await res.json();
 
-                // Top cards
-                document.getElementById('cpu-val').innerText = `${data.cpu_usage.toFixed(1)}%`;
-                document.getElementById('cpu-bar').style.width = `${data.cpu_usage}%`;
-
-                document.getElementById('gpu-val').innerText = `${data.gpu_usage}%`;
-                document.getElementById('gpu-bar').style.width = `${data.gpu_usage}%`;
-
-                document.getElementById('disk-val').innerText = `${data.disk_usage.toFixed(1)}%`;
-                document.getElementById('disk-bar').style.width = `${data.disk_usage}%`;
-
-                document.getElementById('mem-val').innerText = `${data.memory_usage.toFixed(1)}%`;
-                document.getElementById('mem-bar').style.width = `${data.memory_usage}%`;
-
-                document.getElementById('queue-val').innerText = data.queue_size;
-                document.getElementById('saved-val').innerText = formatBytes(data.total_saved_bytes || 0);
-
-                // Lifetime stats
-                document.getElementById('total-conv').innerText = data.total_conversions || 0;
-                document.getElementById('success-conv').innerText = data.successful_conversions || 0;
-                document.getElementById('failed-conv').innerText = data.failed_conversions || 0;
-
-                // Currently converting list
-                const convertingList = document.getElementById('converting-list');
-                const items = data.currently_converting || [];
-
-                if (items.length === 0) {
-                    convertingList.innerHTML = `
-                        <div class="empty-state">
-                            <i class="fa-solid fa-mug-hot"></i>
-                            <p>No active conversions right now</p>
-                        </div>
-                    `;
-                } else {
-                    convertingList.innerHTML = items.map(item => `
-                        <div class="converting-item">
-                            <div class="item-icon"><i class="fa-solid ${getIconForMedia(item.type)}"></i></div>
-                            <div class="item-details">
-                                <div class="item-name" title="${item.file}">${item.file}</div>
-                                <div class="item-meta">Type: <span class="badge type-${item.type}">${item.type}</span></div>
-                            </div>
-                            <div class="item-status" style="width: 150px; text-align: right;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem;">
-                                    <span><i class="fa-solid fa-gear fa-spin" style="margin-right: 4px;"></i> Converting</span>
-                                    <span>${item.progress || 0}%</span>
-                                </div>
-                                <div class="stat-prog" style="height: 6px; margin-top: 4px;"><div class="stat-bar primary-bg" style="width: ${item.progress || 0}%"></div></div>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-            } catch (err) {
-                console.error("Failed to fetch stats:", err);
+            // Update Header pulse based on queue
+            const pulseEles = document.querySelectorAll('.pulse');
+            if (data.queue_size > 0 && !isPulsing) {
+                pulseEles.forEach(el => el.style.animation = 'pulse-dot 2s infinite');
+                isPulsing = true;
+            } else if (data.queue_size === 0 && isPulsing) {
+                pulseEles.forEach(el => el.style.animation = 'none');
+                isPulsing = false;
             }
+
+            // Banner Warning
+            const banner = document.getElementById('dry-run-banner');
+            banner.style.display = data.dry_run ? 'flex' : 'none';
+
+            // Top Hardware Cards Data
+            document.getElementById('cpu-val').innerText = `${data.cpu_usage.toFixed(1)}%`;
+            document.getElementById('cpu-bar').style.width = `${data.cpu_usage}%`;
+
+            document.getElementById('mem-val').innerText = `${data.memory_usage.toFixed(1)}%`;
+            document.getElementById('mem-bar').style.width = `${data.memory_usage}%`;
+
+            document.getElementById('gpu-val').innerText = `${data.gpu_usage.toFixed(1)}%`;
+            document.getElementById('gpu-bar').style.width = `${data.gpu_usage}%`;
+
+            document.getElementById('disk-val').innerText = `${data.disk_usage.toFixed(1)}%`;
+            document.getElementById('disk-bar').style.width = `${data.disk_usage}%`;
+
+
+            // Middle Dashboard Cards Data
+            document.getElementById('queue-val').innerText = data.queue_size;
+            document.getElementById('saved-val').innerText = formatBytes(data.total_saved_bytes);
+
+            document.getElementById('total-conv').innerText = data.total_conversions;
+            document.getElementById('success-conv').innerText = data.successful_conversions;
+            document.getElementById('failed-conv').innerText = data.failed_conversions;
+
+
+            // Currently Converting List Map
+            const convertingList = document.getElementById('converting-list');
+            const items = data.currently_converting;
+
+            if (items.length === 0) {
+                convertingList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fa-solid fa-check-circle"></i>
+                        <p>Queue is empty</p>
+                    </div>
+                `;
+            } else {
+                convertingList.innerHTML = items.map(item => `
+                    <div class="converting-item">
+                        <div class="item-icon"><i class="fa-solid ${getIconForMedia(item.type)}"></i></div>
+                        <div class="item-details">
+                            <div class="item-name" title="${item.file}">${item.file}</div>
+                            <div class="item-meta">Type: <span class="badge type-${item.type}">${item.type}</span></div>
+                        </div>
+                        <div class="item-status" style="width: 150px; text-align: right;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem;">
+                                <span><i class="fa-solid fa-gear fa-spin" style="margin-right: 4px;"></i> Converting</span>
+                                <span>${item.progress || 0}%</span>
+                            </div>
+                            <div class="stat-prog" style="height: 6px; margin-top: 4px;"><div class="stat-bar primary-bg" style="width: ${item.progress || 0}%"></div></div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (err) {
+            console.error("Failed to fetch stats:", err);
         }
     }
 
@@ -174,6 +188,39 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error("Failed to fetch history:", err);
             document.getElementById('history-body').innerHTML = `<tr><td colspan="7" class="text-center text-error">Failed to load history</td></tr>`;
+        }
+    }
+
+    // Logs Update
+    async function fetchLogs() {
+        if (!document.getElementById('logs').classList.contains('active')) return;
+
+        try {
+            const res = await fetch('/api/logs');
+            const data = await res.json();
+            const terminal = document.getElementById('terminal-output');
+
+            if (data.error) {
+                terminal.innerHTML = `<span class="text-error">Error: ${data.error}</span>`;
+                return;
+            }
+
+            // Check if user is scrolled to the bottom before updating
+            const isScrolledToBottom = terminal.scrollHeight - terminal.clientHeight <= terminal.scrollTop + 10;
+
+            terminal.innerHTML = data.lines.map(line => {
+                line = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                if (line.includes(' - INFO - ')) return `<span style="color: #6ee7b7">${line}</span>`;
+                if (line.includes(' - ERROR - ')) return `<span style="color: #fca5a5">${line}</span>`;
+                if (line.includes(' - WARNING - ')) return `<span style="color: #fcd34d">${line}</span>`;
+                return line;
+            }).join('');
+
+            if (isScrolledToBottom) {
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        } catch (err) {
+            console.error("Failed to fetch logs:", err);
         }
     }
 
@@ -304,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (Array.isArray(originalValue)) {
                 newConfig[key] = input.value.split(',').map(s => s.trim()).filter(Boolean);
             } else if (typeof originalValue === 'number') {
-                newConfig[key] = Number(input.value) || 0;
+                newConfig[key] = Number(input.value);
             } else {
                 newConfig[key] = input.value;
             }
@@ -323,17 +370,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) {
                 showToast("Settings updated successfully!");
                 currentConfig = newConfig;
+                fetchStats(); // Update banner immediately if dry_run changed
             } else {
-                throw new Error("Server returned " + res.status);
+                showToast("Failed to save settings to server.", true);
             }
             document.getElementById('save-settings').innerHTML = origText;
         } catch (err) {
-            showToast("Failed to save settings: " + err.message, true);
+            console.error("Save error:", err);
+            showToast("Network error while saving settings.", true);
             document.getElementById('save-settings').innerHTML = '<i class="fa-solid fa-save"></i> Save Changes';
         }
     });
-
-    document.getElementById('refresh-history').addEventListener('click', fetchHistory);
 
     // --- Folder Browser Logic ---
     let currentBrowserPath = "";

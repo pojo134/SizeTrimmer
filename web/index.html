@@ -17,16 +17,26 @@
                 <div class="logo-icon"><i class="fa-solid fa-compress"></i></div>
                 <h2>SizeTrimmer</h2>
             </div>
-            <nav>
-                <a href="#" class="nav-item active" data-target="dashboard"><i class="fa-solid fa-chart-line"></i>
-                    Dashboard</a>
-                <a href="#" class="nav-item" data-target="history"><i class="fa-solid fa-clock-rotate-left"></i>
-                    History</a>
-                <a href="#" class="nav-item" data-target="settings"><i class="fa-solid fa-gear"></i> Settings</a>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item active" data-target="dashboard">
+                        <i class="fa-solid fa-chart-line"></i> Dashboard
+                    </li>
+                    <li class="nav-item" data-target="history">
+                        <i class="fa-solid fa-clock-rotate-left"></i> History
+                    </li>
+                    <li class="nav-item" data-target="logs">
+                        <i class="fa-solid fa-file-lines"></i> Logs
+                    </li>
+                    <li class="nav-item" data-target="settings">
+                        <i class="fa-solid fa-gear"></i> Settings
+                    </li>
+                </ul>
             </nav>
         </aside>
 
-        <main class="content">
+        <!-- Main Content Area -->
+        <main class="main-content">
             <!-- Dashboard View -->
             <section id="dashboard" class="view active">
                 <header>
@@ -91,54 +101,48 @@
                             </div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon accent-icon"><i class="fa-solid fa-layer-group"></i></div>
-                        <div class="stat-info">
-                            <h3>Queue Size</h3>
-                            <div class="stat-value" id="queue-val">0</div>
-                            <div class="stat-desc">Files waiting</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon success-icon"><i class="fa-solid fa-weight-scale"></i></div>
-                        <div class="stat-info">
-                            <h3>Space Saved</h3>
-                            <div class="stat-value" id="saved-val">0 MB</div>
-                            <div class="stat-desc">Total reduction</div>
-                        </div>
-                    </div>
                 </div>
 
-                <div class="dashboard-panels">
-                    <div class="panel flex-2">
-                        <div class="panel-header">
-                            <h2><i class="fa-solid fa-cogs"></i> Currently Converting</h2>
+                <div class="dashboard-grid">
+                    <!-- Queue Status -->
+                    <div class="card status-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-list-check"></i> Conversion Queue</h2>
+                            <div class="badge primary"><span id="queue-val">0</span> in queue</div>
                         </div>
                         <div id="converting-list" class="item-list">
+                            <!-- Items populated by JS -->
                             <div class="empty-state">
-                                <i class="fa-solid fa-mug-hot"></i>
-                                <p>No active conversions right now</p>
+                                <i class="fa-solid fa-check-circle"></i>
+                                <p>Queue is empty</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="panel flex-1">
-                        <div class="panel-header">
-                            <h2><i class="fa-solid fa-chart-pie"></i> Lifetime Stats</h2>
+                    <!-- Lifetime Stats -->
+                    <div class="card summary-card">
+                        <div class="card-header">
+                            <h2><i class="fa-solid fa-chart-column"></i> Lifetime Stats</h2>
                         </div>
-                        <div class="stats-list">
-                            <div class="stat-row">
-                                <div class="stat-label"><i class="fa-solid fa-film"></i> Total Processed</div>
+                        <div class="stat-circles">
+                            <div class="stat-circle">
                                 <span id="total-conv" class="stat-number">0</span>
+                                <span class="stat-label">Total Conversions</span>
                             </div>
-                            <div class="stat-row">
-                                <div class="stat-label"><i class="fa-solid fa-check-circle text-success"></i> Successful
-                                </div>
+                            <div class="stat-circle">
                                 <span id="success-conv" class="stat-number text-success">0</span>
+                                <span class="stat-label">Successful</span>
                             </div>
-                            <div class="stat-row">
-                                <div class="stat-label"><i class="fa-solid fa-times-circle text-error"></i> Failed</div>
+                            <div class="stat-circle">
                                 <span id="failed-conv" class="stat-number text-error">0</span>
+                                <span class="stat-label">Failed</span>
+                            </div>
+                        </div>
+                        <div class="space-saved">
+                            <i class="fa-solid fa-hard-drive"></i>
+                            <div class="space-info">
+                                <span class="space-label">Total Storage Saved</span>
+                                <span id="saved-val" class="space-value">0 MB</span>
                             </div>
                         </div>
                     </div>
@@ -177,6 +181,22 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </section>
+
+            <!-- Logs View -->
+            <section id="logs" class="view">
+                <header>
+                    <div>
+                        <h1>System Logs</h1>
+                        <p class="subtitle">Live standard output tailing from FFmpeg</p>
+                    </div>
+                    <div class="status-badge"><span class="pulse"></span> Active</div>
+                </header>
+                <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+                    <pre class="log-container" id="terminal-output">
+                        <div class="empty-state">Loading logs...</div>
+                    </pre>
                 </div>
             </section>
 

@@ -9,6 +9,7 @@ import queue
 import uvicorn
 import psutil
 import re
+from collections import deque
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -138,7 +139,17 @@ def api_stats():
         "failed_conversions": db_stats.get("error_count", 0),
     }
     
-
+@app.get("/api/logs")
+def api_logs():
+    try:
+        if not os.path.exists(LOG_FILE):
+            return {"lines": ["Log file not found."]}
+        
+        with open(LOG_FILE, 'r') as f:
+            lines = deque(f, maxlen=500)
+            return {"lines": list(lines)}
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/api/history")
 def api_history():
