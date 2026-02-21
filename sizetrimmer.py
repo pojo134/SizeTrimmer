@@ -49,13 +49,37 @@ app = FastAPI(title="SizeTrimmer Media Service")
 os.makedirs("web/static", exist_ok=True)
 
 def load_config():
+    default_config = {
+        "parent_directory": "",
+        "tv_show_keywords": ["tv", "shows", "season"],
+        "movie_keywords": ["movies", "films"],
+        "music_keywords": ["music", "audio"],
+        "video_codec": "libx265",
+        "ffmpeg_preset": "medium",
+        "ffmpeg_crf": 26,
+        "audio_codec_video": "aac",
+        "audio_codec_music": "libmp3lame",
+        "music_bitrate": "192k",
+        "tv_resolution": "1280x720",
+        "movie_resolution": "1920x1080",
+        "dry_run": True
+    }
+    
     if not os.path.exists(CONFIG_FILE):
-        return {"dry_run": True}
-    with open(CONFIG_FILE, 'r') as f:
-        config = json.load(f)
-    if "dry_run" not in config:
-        config["dry_run"] = True
-    return config
+        return default_config
+        
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+            
+        # Merge missing defaults
+        for key, value in default_config.items():
+            if key not in config:
+                config[key] = value
+                
+        return config
+    except Exception:
+        return default_config
 
 def save_config(new_config):
     with open(CONFIG_FILE, 'w') as f:
