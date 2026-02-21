@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SizeTrimmer Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon"><i class="fa-solid fa-compress"></i></div>
+                <h2>SizeTrimmer</h2>
+            </div>
+            <nav>
+                <a href="#" class="nav-item active" data-target="dashboard"><i class="fa-solid fa-chart-line"></i>
+                    Dashboard</a>
+                <a href="#" class="nav-item" data-target="history"><i class="fa-solid fa-clock-rotate-left"></i>
+                    History</a>
+                <a href="#" class="nav-item" data-target="settings"><i class="fa-solid fa-gear"></i> Settings</a>
+            </nav>
+        </aside>
+
+        <main class="content">
+            <!-- Dashboard View -->
+            <section id="dashboard" class="view active">
+                <header>
+                    <div>
+                        <h1>Dashboard</h1>
+                        <p class="subtitle">Overview of your media conversion system</p>
+                    </div>
+                    <div class="status-badge"><span class="pulse"></span> System Active</div>
+                </header>
+
+                <div id="dry-run-banner" class="banner banner-warning" style="display: none;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span><strong>Dry Run Mode is active!</strong> Conversions are currently simulated. Go to Settings
+                        and disable "Dry Run" to actually process files.</span>
+                    <button class="btn-icon btn-sm"
+                        onclick="document.querySelector('.nav-item[data-target=\'settings\']').click()">Settings</button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon primary-icon"><i class="fa-solid fa-microchip"></i></div>
+                        <div class="stat-info">
+                            <h3>CPU Usage</h3>
+                            <div class="stat-value" id="cpu-val">0%</div>
+                            <div class="progress-bar">
+                                <div class="progress" id="cpu-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon"
+                            style="color: var(--accent-secondary); background: rgba(59, 130, 246, 0.1);"><i
+                                class="fa-solid fa-server"></i></div>
+                        <div class="stat-info">
+                            <h3>GPU Usage</h3>
+                            <div class="stat-value" id="gpu-val">0%</div>
+                            <div class="progress-bar">
+                                <div class="progress" id="gpu-bar"
+                                    style="width: 0%; background: var(--accent-secondary);"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: var(--warning); background: rgba(245, 158, 11, 0.1);"><i
+                                class="fa-solid fa-hard-drive"></i></div>
+                        <div class="stat-info">
+                            <h3>Disk Usage</h3>
+                            <div class="stat-value" id="disk-val">0%</div>
+                            <div class="progress-bar">
+                                <div class="progress" id="disk-bar" style="width: 0%; background: var(--warning);">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon secondary-icon"><i class="fa-solid fa-memory"></i></div>
+                        <div class="stat-info">
+                            <h3>Memory Usage</h3>
+                            <div class="stat-value" id="mem-val">0%</div>
+                            <div class="progress-bar">
+                                <div class="progress" id="mem-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon accent-icon"><i class="fa-solid fa-layer-group"></i></div>
+                        <div class="stat-info">
+                            <h3>Queue Size</h3>
+                            <div class="stat-value" id="queue-val">0</div>
+                            <div class="stat-desc">Files waiting</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon success-icon"><i class="fa-solid fa-weight-scale"></i></div>
+                        <div class="stat-info">
+                            <h3>Space Saved</h3>
+                            <div class="stat-value" id="saved-val">0 MB</div>
+                            <div class="stat-desc">Total reduction</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-panels">
+                    <div class="panel flex-2">
+                        <div class="panel-header">
+                            <h2><i class="fa-solid fa-cogs"></i> Currently Converting</h2>
+                        </div>
+                        <div id="converting-list" class="item-list">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-mug-hot"></i>
+                                <p>No active conversions right now</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel flex-1">
+                        <div class="panel-header">
+                            <h2><i class="fa-solid fa-chart-pie"></i> Lifetime Stats</h2>
+                        </div>
+                        <div class="stats-list">
+                            <div class="stat-row">
+                                <div class="stat-label"><i class="fa-solid fa-film"></i> Total Processed</div>
+                                <span id="total-conv" class="stat-number">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <div class="stat-label"><i class="fa-solid fa-check-circle text-success"></i> Successful
+                                </div>
+                                <span id="success-conv" class="stat-number text-success">0</span>
+                            </div>
+                            <div class="stat-row">
+                                <div class="stat-label"><i class="fa-solid fa-times-circle text-error"></i> Failed</div>
+                                <span id="failed-conv" class="stat-number text-error">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- History View -->
+            <section id="history" class="view">
+                <header>
+                    <div>
+                        <h1>Conversion History</h1>
+                        <p class="subtitle">Log of recently processed files</p>
+                    </div>
+                    <button id="refresh-history" class="btn-icon"><i class="fa-solid fa-rotate-right"></i>
+                        Refresh</button>
+                </header>
+                <div class="panel full-height">
+                    <div class="table-container">
+                        <table id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>File Name</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Original</th>
+                                    <th>New Size</th>
+                                    <th>Saved</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-body">
+                                <tr>
+                                    <td colspan="7" class="text-center loading-cell"><i
+                                            class="fa-solid fa-circle-notch fa-spin"></i> Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings View -->
+            <section id="settings" class="view">
+                <header>
+                    <div>
+                        <h1>Configuration</h1>
+                        <p class="subtitle">System settings and FFmpeg presets</p>
+                    </div>
+                    <button id="save-settings" class="btn-primary"><i class="fa-solid fa-save"></i> Save
+                        Changes</button>
+                </header>
+                <div class="panel full-height">
+                    <form id="settings-form" class="settings-grid">
+                        <div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading settings...
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Folder Browser Modal -->
+    <div id="folder-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Browse Folders</h2>
+                <button id="close-modal" class="btn-icon"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="current-path-display">
+                    <button id="folder-up" class="btn-icon" title="Go Up"><i class="fa-solid fa-arrow-up"></i></button>
+                    <div id="folder-path-text" class="path-text">Loading...</div>
+                </div>
+                <div id="folder-list" class="folder-list">
+                    <!-- Folders injected via JS -->
+                    <div class="text-center"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="select-folder-btn" class="btn-primary" style="width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-check"></i> Select This Folder
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">
+        <i class="fa-solid fa-check-circle"></i>
+        <span id="toast-msg">Settings saved successfully!</span>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

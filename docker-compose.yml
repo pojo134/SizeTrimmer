@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  sizetrimmer:
+    build: .
+    container_name: sizetrimmer
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Map your media library here (internal path defaults to /media)
+      - /path/to/your/media:/media
+      
+      # Persist configuration and database to your host
+      - ./data:/app/data
+    environment:
+      - TZ=America/New_York
+      
+    # If using an Nvidia GPU, uncomment the deploy block below to pass it through:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu, video, utility]

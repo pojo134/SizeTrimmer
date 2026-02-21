@@ -1,0 +1,21 @@
+[Unit]
+Description=SizeTrimmer Media Background Conversion Service
+After=network.target
+
+[Service]
+Type=simple
+# Update the user to the linux user that should run this and has file permissions
+User=brad
+# Update the working directory to where your script is
+WorkingDirectory=/home/brad/ai-shit/sizetrimmer
+# Update the exec start to the absolute path of python and the script
+ExecStart=/usr/bin/python3 /home/brad/ai-shit/sizetrimmer/sizetrimmer.py
+Restart=on-failure
+RestartSec=5
+# Output to syslog
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=sizetrimmer
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Project Data & Configs
+config.json
+sizetrimmer.db
+sizetrimmer.log
+data/
+
+# OS Files
+.DS_Store
+Thumbs.db
