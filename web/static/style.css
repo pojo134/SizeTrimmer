@@ -323,18 +323,7 @@ header h1 {
     transition: width 0.4s ease;
 }
 
-/* Dashboard Bottom Grid */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 1.5rem;
-}
 
-@media (max-width: 1024px) {
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-}
 
 #mem-bar {
     background: var(--accent-secondary);
