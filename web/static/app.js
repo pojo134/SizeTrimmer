@@ -637,7 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pulse.style.background = 'var(--success)';
                 pulse.style.boxShadow = '0 0 0 0 rgba(16, 185, 129, 0.4)';
                 pulse.style.animation = 'pulse 2s infinite';
-                toggleText.innerText = 'Active';
+                toggleText.innerText = 'Live Updates';
                 fetchLogs();
             } else {
                 badge.style.background = 'rgba(255, 255, 255, 0.05)';
