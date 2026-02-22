@@ -44,7 +44,16 @@
                         <h1>Dashboard</h1>
                         <p class="subtitle">Overview of your media conversion system</p>
                     </div>
-                    <div class="status-badge"><span class="pulse"></span> System Active</div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <label class="switch" title="Pause System Actions">
+                            <input type="checkbox" id="pause-switch" onchange="togglePause(this.checked)">
+                            <span class="slider round"></span>
+                        </label>
+                        <div class="status-badge" id="system-status-indicator">
+                            <span class="pulse" id="system-status-pulse"></span>
+                            <span id="system-status-text">System Active</span>
+                        </div>
+                    </div>
                 </header>
 
                 <div id="dry-run-banner" class="banner banner-warning" style="display: none;">

@@ -122,6 +122,30 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('failed-conv').innerText = data.failed_conversions;
 
 
+            // Pause State Logic
+            const pauseSwitch = document.getElementById('pause-switch');
+            const statusIndicator = document.getElementById('system-status-indicator');
+            const statusPulse = document.getElementById('system-status-pulse');
+            const statusText = document.getElementById('system-status-text');
+
+            if (data.is_paused) {
+                pauseSwitch.checked = true;
+                statusIndicator.style.background = 'rgba(245, 158, 11, 0.1)';
+                statusIndicator.style.borderColor = 'rgba(245, 158, 11, 0.2)';
+                statusIndicator.style.color = 'var(--warning)';
+                statusPulse.style.background = 'var(--warning)';
+                statusPulse.style.boxShadow = '0 0 0 0 rgba(245, 158, 11, 0.4)';
+                statusText.innerText = 'System Paused';
+            } else {
+                pauseSwitch.checked = false;
+                statusIndicator.style.background = 'rgba(16, 185, 129, 0.1)';
+                statusIndicator.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                statusIndicator.style.color = 'var(--success)';
+                statusPulse.style.background = 'var(--success)';
+                statusPulse.style.boxShadow = '0 0 0 0 rgba(16, 185, 129, 0.4)';
+                statusText.innerText = 'System Active';
+            }
+
             // Currently Converting List Map
             const convertingList = document.getElementById('converting-list');
             const items = data.currently_converting;
@@ -179,6 +203,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div class="stat-prog" style="height: 6px; margin-top: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden;">
                                     <div class="stat-bar primary-bg prog-bar" style="width: ${progressVal}%; height: 100%; transition: width 0.4s ease; background: var(--accent-primary);"></div>
                                 </div>
+                            </div>
+                            <div class="item-actions" style="margin-left: 10px;">
+                                <button class="btn-icon" style="color: var(--error); border-color: rgba(239, 68, 68, 0.3);" onclick="cancelConversion('${item.file.replace(/"/g, '&quot;')}')" title="Cancel Conversion">
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
                             </div>
                         `;
                         convertingList.appendChild(child);
@@ -483,6 +512,45 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (err) {
             listContainer.innerHTML = `<div class="text-center text-error" style="padding: 2rem">Failed to load directory</div>`;
+        }
+    }
+
+    // API Handlers
+    async function togglePause(isPaused) {
+        try {
+            await fetch('/api/pause', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ paused: isPaused })
+            });
+            showToast(`System ${isPaused ? 'Paused' : 'Resumed'}`, 'success');
+            fetchStats();
+        } catch (err) {
+            console.error("Failed to toggle pause", err);
+            showToast('Failed to change pause state', 'error');
+        }
+    }
+
+    async function cancelConversion(filePath) {
+        if (!confirm(`Are you sure you want to cancel the conversion of ${filePath}?`)) return;
+
+        try {
+            const res = await fetch('/api/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ file_path: filePath })
+            });
+            const data = await res.json();
+
+            if (data.status === 'success') {
+                showToast('Conversion cancelled', 'success');
+                fetchStats();
+            } else {
+                showToast(data.error || 'Failed to cancel', 'error');
+            }
+        } catch (err) {
+            console.error("Failed to cancel", err);
+            showToast('Failed to cancel conversion', 'error');
         }
     }
 

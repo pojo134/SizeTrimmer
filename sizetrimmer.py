@@ -133,6 +133,7 @@ def api_stats():
         "queue_size": conversion_queue.qsize(),
         "currently_converting": list(current_converting.values()),
         "dry_run": config.get("dry_run", True),
+        "is_paused": is_paused,
         "total_saved_bytes": db_stats.get("space_saved_bytes", 0),
         "total_conversions": db_stats.get("success_count", 0) + db_stats.get("error_count", 0),
         "successful_conversions": db_stats.get("success_count", 0),
@@ -164,6 +165,30 @@ def api_set_config(new_config: dict):
     save_config(new_config)
     config_updated_event.set()
     return {"status": "success"}
+
+is_paused = False
+active_processes = {}
+
+@app.post("/api/pause")
+def api_toggle_pause(payload: dict):
+    global is_paused
+    is_paused = payload.get("paused", False)
+    return {"status": "success", "paused": is_paused}
+
+@app.post("/api/cancel")
+def api_cancel_conversion(payload: dict):
+    file_path = payload.get("file_path")
+    if not file_path:
+        return {"error": "No file_path provided"}
+        
+    if file_path in active_processes:
+        process = active_processes[file_path]
+        try:
+            process.terminate() # Send SIGTERM to ffmpeg
+        except Exception as e:
+            logging.error(f"Failed to terminate process for {file_path}: {e}")
+        return {"status": "success"}
+    return {"error": "Process not found or already finished"}
 
 @app.get("/api/folders")
 def api_get_folders(path: str = None):
@@ -397,6 +422,7 @@ def convert_media(file_path, media_type, config):
         total_duration = get_media_duration(file_path)
         
         process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+        active_processes[file_path] = process
         
         while True:
             line = process.stderr.readline()
@@ -412,6 +438,9 @@ def convert_media(file_path, media_type, config):
                         current_converting[file_path]["progress"] = min(100, max(0, progress))
                         
         if process.returncode != 0:
+            # -15 normally means SIGTERM (Killed by cancel API)
+            if process.returncode == -15 or process.returncode == 255: # Windows / Unix kill variances
+                raise KeyboardInterrupt("Cancelled by user")
             raise subprocess.CalledProcessError(process.returncode, cmd)
         
         if file_path != final_file:
@@ -423,20 +452,34 @@ def convert_media(file_path, media_type, config):
         log_conversion(file_name, media_type, orig_size, new_size, "success")
         
         if file_path in current_converting: del current_converting[file_path]
+        if file_path in active_processes: del active_processes[file_path]
         return True
+    except KeyboardInterrupt as e:
+        if os.path.exists(tmp_file): os.remove(tmp_file)
+        logging.info(f"Process cancelled for {file_name}: {e}")
+        if file_path in current_converting: del current_converting[file_path]
+        if file_path in active_processes: del active_processes[file_path]
+        return False
     except subprocess.CalledProcessError as e:
         if os.path.exists(tmp_file): os.remove(tmp_file)
         log_conversion(file_name, media_type, orig_size, 0, "error", str(e))
         if file_path in current_converting: del current_converting[file_path]
+        if file_path in active_processes: del active_processes[file_path]
         return False
     except Exception as e:
         if os.path.exists(tmp_file): os.remove(tmp_file)
         log_conversion(file_name, media_type, orig_size, 0, "error", str(e))
         if file_path in current_converting: del current_converting[file_path]
+        if file_path in active_processes: del active_processes[file_path]
         return False
 
 def worker_loop(config_ref):
+    global is_paused
     while True:
+        if is_paused:
+            time.sleep(1)
+            continue
+            
         item = conversion_queue.get()
         if item is None: break
         file_path, media_type = item
