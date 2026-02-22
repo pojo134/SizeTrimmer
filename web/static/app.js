@@ -516,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // API Handlers
-    async function togglePause(isPaused) {
+    window.togglePause = async function (isPaused) {
         try {
             await fetch('/api/pause', {
                 method: 'POST',
@@ -531,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function cancelConversion(filePath) {
+    window.cancelConversion = async function (filePath) {
         if (!confirm(`Are you sure you want to cancel the conversion of ${filePath}?`)) return;
 
         try {
