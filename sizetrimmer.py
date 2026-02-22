@@ -442,13 +442,18 @@ def convert_media(file_path, media_type, config):
     final_file = f"{base_name}{out_ext}"
     
     if config.get("dry_run", True):
+        logging.info(f"DRY RUN: Simulating conversion of {file_name}...")
         time.sleep(2) 
         log_conversion(file_name, media_type, orig_size, orig_size, "success (dry-run)")
         if file_path in current_converting: del current_converting[file_path]
+        logging.info(f"DRY RUN: Completed simulation of {file_name}")
         return True
 
     try:
         total_duration = get_media_duration(file_path)
+        
+        logging.info(f"Starting actual conversion: {file_name}")
+        logging.info(f"FFmpeg pipeline: {' '.join(cmd)}")
         
         process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         active_processes[file_path] = process
@@ -465,6 +470,11 @@ def convert_media(file_path, media_type, config):
                     progress = int((current_s / total_duration) * 100)
                     if file_path in current_converting:
                         current_converting[file_path]["progress"] = min(100, max(0, progress))
+            
+            clean_line = line.strip()
+            # Only trace non-empty lines that aren't the rapid constant frame updates
+            if clean_line and not clean_line.startswith("frame=") and not clean_line.startswith("size="):
+                logging.info(f"[FFMPEG] {clean_line}")
                         
         if process.returncode != 0:
             # -15 normally means SIGTERM (Killed by cancel API)
