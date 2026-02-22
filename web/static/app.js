@@ -531,8 +531,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    window.cancelConversion = async function (filePath) {
-        if (!confirm(`Are you sure you want to cancel the conversion of ${filePath}?`)) return;
+    let activeCancelFile = null;
+
+    window.cancelConversion = function (filePath) {
+        activeCancelFile = filePath;
+        document.getElementById('cancel-file-name').innerText = filePath;
+        document.getElementById('cancel-modal').classList.add('show');
+    }
+
+    document.getElementById('btn-cancel-abort').addEventListener('click', () => {
+        document.getElementById('cancel-modal').classList.remove('show');
+        activeCancelFile = null;
+    });
+
+    document.getElementById('btn-cancel-confirm').addEventListener('click', async () => {
+        if (!activeCancelFile) return;
+
+        const filePath = activeCancelFile;
+        document.getElementById('cancel-modal').classList.remove('show');
+        activeCancelFile = null;
 
         try {
             const res = await fetch('/api/cancel', {
@@ -552,7 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Failed to cancel", err);
             showToast('Failed to cancel conversion', 'error');
         }
-    }
+    });
 
     // Initial setups
     fetchStats();

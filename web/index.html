@@ -237,6 +237,7 @@
 
     <!-- Folder Browser Modal -->
     <div id="folder-modal" class="modal-overlay">
+        <!-- ... existing folder modal content ... -->
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Browse Folders</h2>
@@ -255,6 +256,33 @@
             <div class="modal-footer">
                 <button id="select-folder-btn" class="btn-primary" style="width: 100%; justify-content: center;">
                     <i class="fa-solid fa-check"></i> Select This Folder
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cancel Confirmation Modal -->
+    <div id="cancel-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+            <div class="modal-header" style="justify-content: center;">
+                <h2 style="color: var(--warning);"><i class="fa-solid fa-triangle-exclamation"></i> Cancel Conversion?
+                </h2>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to halt processing for:</p>
+                <div id="cancel-file-name"
+                    style="margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; word-break: break-all; font-family: monospace; color: var(--accent-primary);">
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">The temporary file will be deleted, and the
+                    original will remain untouched.</p>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px;">
+                <button id="btn-cancel-abort" class="btn-icon"
+                    style="flex: 1; justify-content: center; border: 1px solid var(--border-color);">No, Keep
+                    Going</button>
+                <button id="btn-cancel-confirm" class="btn-primary"
+                    style="flex: 1; justify-content: center; background: rgba(239, 68, 68, 0.2); color: var(--error); border: 1px solid rgba(239, 68, 68, 0.4);">
+                    <i class="fa-solid fa-xmark"></i> Yes, Cancel
                 </button>
             </div>
         </div>
