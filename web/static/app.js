@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const statusText = document.getElementById('system-status-text');
 
             if (data.is_paused) {
-                pauseSwitch.checked = true;
+                pauseSwitch.checked = false;
                 statusIndicator.style.background = 'rgba(245, 158, 11, 0.1)';
                 statusIndicator.style.borderColor = 'rgba(245, 158, 11, 0.2)';
                 statusIndicator.style.color = 'var(--warning)';
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusPulse.style.boxShadow = '0 0 0 0 rgba(245, 158, 11, 0.4)';
                 statusText.innerText = 'System Paused';
             } else {
-                pauseSwitch.checked = false;
+                pauseSwitch.checked = true;
                 statusIndicator.style.background = 'rgba(16, 185, 129, 0.1)';
                 statusIndicator.style.borderColor = 'rgba(16, 185, 129, 0.2)';
                 statusIndicator.style.color = 'var(--success)';
