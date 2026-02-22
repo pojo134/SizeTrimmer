@@ -439,6 +439,10 @@ header h1 {
 .item-meta {
     font-size: 0.8rem;
     color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .item-status {
@@ -553,6 +557,12 @@ tr:hover td {
 .badge.type-audio {
     background: rgba(236, 72, 153, 0.1);
     color: var(--accent-tertiary);
+}
+
+.badge.bg-dark {
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
 }
 
 /* Settings Form */

@@ -280,6 +280,16 @@ def parse_ffmpeg_time(time_str):
         return int(h) * 3600 + int(m) * 60 + float(s)
     return 0.0
 
+def get_media_resolution(file_path):
+    try:
+        cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=s=x:p=0", file_path]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        res = result.stdout.strip()
+        return res if res else "?x?"
+    except Exception:
+        return "?x?"
+
+
 def convert_media(file_path, media_type, config):
     if not os.path.exists(file_path): return
 
@@ -290,9 +300,39 @@ def convert_media(file_path, media_type, config):
         return True
 
     file_name = os.path.basename(file_path)
-    current_converting[file_path] = {"file": file_name, "type": media_type, "progress": 0}
     
-    # Store initial size
+    # Pre-calculate encode details for frontend display
+    video_codec = config.get("video_codec", "libx265")
+    preset = config.get("ffmpeg_preset", "medium")
+    crf = config.get("ffmpeg_crf", 26)
+    
+    if media_type == 'audio':
+        codec_display = config.get("audio_codec_music", "libmp3lame")
+        quality_display = config.get("music_bitrate", "192k")
+        res_display = "Audio"
+    else:
+        codec_display = video_codec
+        # Hardware encoders like nvenc and amf have restricted preset options
+        if video_codec in ['hevc_nvenc', 'h264_nvenc', 'hevc_amf', 'h264_amf', 'hevc_qsv']:
+            if preset in ['veryslow', 'slower', 'slow']:
+                preset = "slow"
+            elif preset in ['fast', 'faster', 'veryfast', 'superfast', 'ultrafast']:
+                preset = "fast"
+            else:
+                preset = "medium"
+        quality_display = f"CRF {crf} ({preset})"
+        target_res = config.get("tv_resolution", "1280x720") if media_type == 'tv' else config.get("movie_resolution", "1920x1080")
+        src_res = get_media_resolution(file_path)
+        res_display = f"{src_res} ➔ {target_res}"
+        
+    current_converting[file_path] = {
+        "file": file_name, 
+        "type": media_type, 
+        "progress": 0,
+        "codec": codec_display,
+        "quality": quality_display,
+        "resolution": res_display
+    }
     try:
         orig_size = os.path.getsize(file_path)
     except Exception:

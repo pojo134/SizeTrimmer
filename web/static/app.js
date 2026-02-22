@@ -164,7 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="item-icon"><i class="fa-solid ${getIconForMedia(item.type)}"></i></div>
                             <div class="item-details">
                                 <div class="item-name" title="${item.file.replace(/"/g, '&quot;')}">${item.file}</div>
-                                <div class="item-meta">Type: <span class="badge type-${item.type.toLowerCase()}">${item.type}</span></div>
+                                <div class="item-meta">
+                                    <span class="badge type-${item.type.toLowerCase()}">${item.type}</span>
+                                    ${item.codec ? `<span class="badge bg-dark">${item.codec}</span>` : ''}
+                                    ${item.quality ? `<span class="badge bg-dark">${item.quality}</span>` : ''}
+                                    ${item.resolution && item.resolution !== "?x? ➔ ?x?" ? `<span class="badge bg-dark">${item.resolution}</span>` : ''}
+                                </div>
                             </div>
                             <div class="item-status" style="width: 150px; text-align: right;">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem;">
