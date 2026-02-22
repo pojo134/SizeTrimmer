@@ -57,12 +57,18 @@ def load_config():
         "music_keywords": ["music", "audio"],
         "video_codec": "libx265",
         "ffmpeg_preset": "medium",
+        "ffmpeg_tune": "none",
+        "video_profile": "auto",
         "ffmpeg_crf": 26,
         "audio_codec_video": "aac",
+        "audio_bitrate_video": "128k",
+        "audio_channels": "auto",
         "audio_codec_music": "libmp3lame",
         "music_bitrate": "192k",
         "tv_resolution": "1280x720",
         "movie_resolution": "1920x1080",
+        "scale_filter": "bicubic",
+        "deinterlace": False,
         "dry_run": True
     }
     
@@ -377,6 +383,8 @@ def convert_media(file_path, media_type, config):
         
         video_codec = config.get("video_codec", "libx265")
         preset = config.get("ffmpeg_preset", "medium")
+        tune = config.get("ffmpeg_tune", "none")
+        profile = config.get("video_profile", "auto")
         
         # Hardware encoders like nvenc and amf have restricted preset options
         # Map common software presets down to the closest hardware equivalent
@@ -393,6 +401,8 @@ def convert_media(file_path, media_type, config):
                 "-preset", preset,
                 "-cq", str(config.get("ffmpeg_crf", 26))
             ])
+            if profile != "auto":
+                cmd.extend(["-profile:v", profile])
         else:
             # Software encode
             cmd.extend([
@@ -400,13 +410,32 @@ def convert_media(file_path, media_type, config):
                 "-preset", preset,
                 "-crf", str(config.get("ffmpeg_crf", 26))
             ])
+            if tune != "none":
+                cmd.extend(["-tune", tune])
+            if profile != "auto":
+                cmd.extend(["-profile:v", profile])
+            
+        # Build Complex Video Filter
+        vf_chain = []
+        if config.get("deinterlace", False):
+            vf_chain.append("yadif=1:-1:0")
+            
+        scaler = config.get("scale_filter", "bicubic")
+        vf_chain.append(f"scale='min({target_res.split('x')[0]},iw)':-2:flags={scaler}")
+        cmd.extend(["-vf", ",".join(vf_chain)])
+        
+        # Audio formatting
+        cmd.extend([
+            "-c:a", config.get("audio_codec_video", "aac"),
+            "-b:a", config.get("audio_bitrate_video", "128k")
+        ])
+        
+        if config.get("audio_channels", "auto") != "auto":
+            cmd.extend(["-ac", str(config.get("audio_channels", "auto"))])
             
         cmd.extend([
-            f"-vf", f"scale='min({target_res.split('x')[0]},iw)':-2",
-            "-c:a", config.get("audio_codec_video", "aac"),
             "-c:s", "copy",
-            "-map", "0:v:0", "-map", "0:a?", "-map", "0:s?",
-            "-b:a", "128k"
+            "-map", "0:v:0", "-map", "0:a?", "-map", "0:s?"
         ])
 
     cmd.append(tmp_file)

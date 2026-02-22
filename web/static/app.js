@@ -310,6 +310,19 @@ document.addEventListener('DOMContentLoaded', () => {
             { val: "hevc_amf", lbl: "AMD GPU (HEVC)" },
             { val: "hevc_qsv", lbl: "Intel GPU (QuickSync HEVC)" }
         ],
+        video_profile: [
+            { val: "auto", lbl: "Automatic" },
+            { val: "baseline", lbl: "Baseline (High Compatibility)" },
+            { val: "main", lbl: "Main (Standard Modern)" },
+            { val: "high", lbl: "High (Best Quality HD+)" },
+        ],
+        ffmpeg_tune: [
+            { val: "none", lbl: "None" },
+            { val: "film", lbl: "Film (Live Action)" },
+            { val: "animation", lbl: "Animation (Cartoons/Anime)" },
+            { val: "grain", lbl: "Grain (Preserve Film Grain)" },
+            { val: "fastdecode", lbl: "Fast Decode (Low CPU playback)" }
+        ],
         audio_codec_video: [
             { val: "aac", lbl: "AAC (Standard)" },
             { val: "ac3", lbl: "AC-3 (Dolby Digital)" },
@@ -322,6 +335,12 @@ document.addEventListener('DOMContentLoaded', () => {
             { val: "flac", lbl: "FLAC (Lossless)" },
             { val: "aac", lbl: "AAC" }
         ],
+        audio_channels: [
+            { val: "auto", lbl: "Keep Original" },
+            { val: "1", lbl: "Mono (1 channel)" },
+            { val: "2", lbl: "Stereo (2 channels)" },
+            { val: "6", lbl: "Surround (5.1 channels)" }
+        ],
         ffmpeg_preset: [
             { val: "ultrafast", lbl: "Ultrafast (Lowest Quality, Fast Encode)" },
             { val: "superfast", lbl: "Superfast" },
@@ -333,9 +352,37 @@ document.addEventListener('DOMContentLoaded', () => {
             { val: "slower", lbl: "Slower (High Quality, Slow Encode)" },
             { val: "veryslow", lbl: "Veryslow (Highest Quality)" }
         ],
+        scale_filter: [
+            { val: "bicubic", lbl: "Bicubic (Standard, Balanced)" },
+            { val: "bilinear", lbl: "Bilinear (Fastest, softer)" },
+            { val: "lanczos", lbl: "Lanczos (High Quality, slower)" }
+        ],
+        audio_bitrate_video: ["64k", "96k", "128k", "192k", "256k", "320k"],
         music_bitrate: ["128k", "192k", "256k", "320k"],
         tv_resolution: ["720x480", "1280x720", "1920x1080", "3840x2160"],
         movie_resolution: ["1280x720", "1920x1080", "2560x1440", "3840x2160"]
+    };
+
+    const TOOLTIPS = {
+        parent_directory: "The root folder SizeTrimmer scans for media files.",
+        tv_show_keywords: "File/folder keywords that categorize media as TV Shows.",
+        movie_keywords: "File/folder keywords that categorize media as Movies.",
+        music_keywords: "File/folder keywords that categorize media as Music.",
+        video_codec: "The encoder used to process video streams. Hardware encoders (NVENC/AMF) are faster but generally yield slightly larger files or softer images than CPU (x264/x265).",
+        ffmpeg_preset: "Determines how much computational time the encoder should spend optimizing compression. Slower presets yield smaller files with better quality at the cost of significantly longer processing times.",
+        ffmpeg_tune: "Applies encoding tweaks based on the visual content type. 'Film' prevents detail loss, 'Animation' optimizes flat coloring, and 'Grain' avoids smoothing noisy footage.",
+        video_profile: "Sets compatibility bounds for the encoded video. 'Baseline' works on very old devices, 'Main' is broadly supported, and 'High' is strictly for modern HD/4K platforms.",
+        ffmpeg_crf: "Constant Rate Factor (0-51) controls visual quality. Lower means better quality but larger files. 18-28 is a sensible range. Typical values: x264/H.264 (20-23), x265/HEVC (24-28).",
+        audio_codec_video: "The format used when re-encoding video tracks. AAC is the modern standard, AC-3 supports 5.1 surround on older receivers.",
+        audio_bitrate_video: "The desired bitrate per audio channel. 128k provides transparent stereo quality for most applications. Higher bitrates preserve more frequencies.",
+        audio_channels: "Downmix audio streams. Stereo (2) is best for mobile playback, Surround (6 / 5.1) requires a home theater. 'Keep Original' leaves the channel map intact.",
+        audio_codec_music: "The format to encode standalone audio files into.",
+        music_bitrate: "The bitrate for standalone audio processing.",
+        tv_resolution: "The maximum bounding resolution for TV Show formats. Larger media scales down, smaller media remains untouched.",
+        movie_resolution: "The maximum bounding resolution for Movie formats. Larger media scales down, smaller media remains untouched.",
+        scale_filter: "The algorithmic method used for resizing pixels. Bilinear is fast but blurry. Bicubic is smooth and balanced. Lanczos is sharp but requires higher processing power.",
+        deinterlace: "Runs the Yadif deinterlacing filter over the video. Enable this if ripping old DVD or broadcast footage containing horizontal scanlines.",
+        dry_run: "Simulates the FFmpeg workflow without executing it. Output sizes are mocked."
     };
 
     function renderSettingsForm(config) {
@@ -345,20 +392,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Configuration options grouped by type implicitly by UI rendering
         for (const [key, value] of Object.entries(config)) {
             const title = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            const tooltipHTML = TOOLTIPS[key] ? `<span class="tooltip"><i class="fa-solid fa-circle-question"></i><span class="tooltip-text">${TOOLTIPS[key]}</span></span>` : '';
 
             const group = document.createElement('div');
             group.className = 'form-group';
 
             if (typeof value === 'boolean') {
                 group.innerHTML = `
-                    <label class="checkbox-label" for="setting-${key}">
+                    <label class="checkbox-label" for="setting-${key}" style="display: flex; align-items: center;">
                         <input type="checkbox" id="setting-${key}" name="${key}" ${value ? 'checked' : ''}>
                         <span style="font-size: 0.95rem; color: var(--text-primary); font-weight: 500">${title}</span>
+                        ${tooltipHTML}
                     </label>
                 `;
             } else if (Array.isArray(value)) {
                 group.innerHTML = `
-                    <label for="setting-${key}">${title} (comma-separated)</label>
+                    <label for="setting-${key}">${title} (comma-separated) ${tooltipHTML}</label>
                     <input type="text" id="setting-${key}" name="${key}" value="${value.join(', ')}">
                 `;
             } else if (OPTIONS_SCHEMA[key]) {
@@ -369,19 +418,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).join('');
 
                 group.innerHTML = `
-                    <label for="setting-${key}">${title}</label>
+                    <label for="setting-${key}">${title} ${tooltipHTML}</label>
                     <select id="setting-${key}" name="${key}">
                         ${optionsHTML}
                     </select>
                 `;
             } else if (key === 'ffmpeg_crf') {
                 group.innerHTML = `
-                    <label for="setting-${key}">${title} (0-51, lower = better quality)</label>
+                    <label for="setting-${key}">${title} (0-51, lower = better quality) ${tooltipHTML}</label>
                     <input type="number" id="setting-${key}" name="${key}" value="${value}" min="0" max="51">
                 `;
             } else if (key === 'parent_directory') {
                 group.innerHTML = `
-                    <label for="setting-${key}">${title}</label>
+                    <label for="setting-${key}">${title} ${tooltipHTML}</label>
                     <div class="input-with-button">
                         <input type="text" id="setting-${key}" name="${key}" value="${value}">
                         <button type="button" class="btn-icon" onclick="openFolderBrowser()"><i class="fa-solid fa-folder-open"></i> Browse...</button>
@@ -389,12 +438,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             } else if (typeof value === 'number') {
                 group.innerHTML = `
-                    <label for="setting-${key}">${title}</label>
+                    <label for="setting-${key}">${title} ${tooltipHTML}</label>
                     <input type="number" id="setting-${key}" name="${key}" value="${value}">
                 `;
             } else {
                 group.innerHTML = `
-                    <label for="setting-${key}">${title}</label>
+                    <label for="setting-${key}">${title} ${tooltipHTML}</label>
                     <input type="text" id="setting-${key}" name="${key}" value="${value}">
                 `;
             }

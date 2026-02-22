@@ -943,3 +943,62 @@ tr:hover td {
     text-align: center;
     margin-top: 2rem;
 }
+
+/* Tooltips */
+.tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 6px;
+    color: var(--text-muted);
+    cursor: help;
+    font-size: 0.85rem;
+    transition: color 0.2s ease;
+}
+
+.tooltip:hover {
+    color: var(--accent-primary);
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 280px;
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    text-align: left;
+    border-radius: 6px;
+    padding: 10px 14px;
+    position: absolute;
+    z-index: 100;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    font-weight: 400;
+    font-family: 'Outfit', sans-serif;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+}
+
+/* Tooltip Arrow */
+.tooltip .tooltip-text::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border-width: 6px;
+    border-style: solid;
+    border-color: var(--border-color) transparent transparent transparent;
+}
+
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
