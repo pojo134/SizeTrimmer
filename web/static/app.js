@@ -627,17 +627,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logToggle) {
         logToggle.addEventListener('change', (e) => {
             const badge = document.getElementById('log-status-badge');
+            const pulse = document.getElementById('log-status-pulse');
+            const toggleText = document.getElementById('log-status-text');
+
             if (e.target.checked) {
-                badge.innerHTML = '<span class="pulse"></span> Active';
-                badge.style.color = 'var(--success)';
                 badge.style.background = 'rgba(16, 185, 129, 0.1)';
                 badge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                badge.style.color = 'var(--success)';
+                pulse.style.background = 'var(--success)';
+                pulse.style.boxShadow = '0 0 0 0 rgba(16, 185, 129, 0.4)';
+                pulse.style.animation = 'pulse 2s infinite';
+                toggleText.innerText = 'Active';
                 fetchLogs();
             } else {
-                badge.innerHTML = '<span class="pulse" style="background: var(--text-muted); box-shadow: none; animation: none;"></span> Paused';
-                badge.style.color = 'var(--text-muted)';
                 badge.style.background = 'rgba(255, 255, 255, 0.05)';
                 badge.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                badge.style.color = 'var(--text-muted)';
+                pulse.style.background = 'var(--text-muted)';
+                pulse.style.boxShadow = 'none';
+                pulse.style.animation = 'none';
+                toggleText.innerText = 'Paused';
             }
         });
     }
