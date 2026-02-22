@@ -262,6 +262,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchLogs() {
         if (!document.getElementById('logs').classList.contains('active')) return;
 
+        const toggle = document.getElementById('live-log-toggle');
+        if (toggle && !toggle.checked) return;
+
         try {
             const res = await fetch('/api/logs');
             const data = await res.json();
@@ -620,7 +623,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const logToggle = document.getElementById('live-log-toggle');
+    if (logToggle) {
+        logToggle.addEventListener('change', (e) => {
+            const badge = document.getElementById('log-status-badge');
+            if (e.target.checked) {
+                badge.innerHTML = '<span class="pulse"></span> Active';
+                badge.style.color = 'var(--success)';
+                badge.style.background = 'rgba(16, 185, 129, 0.1)';
+                badge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                fetchLogs();
+            } else {
+                badge.innerHTML = '<span class="pulse" style="background: var(--text-muted); box-shadow: none; animation: none;"></span> Paused';
+                badge.style.color = 'var(--text-muted)';
+                badge.style.background = 'rgba(255, 255, 255, 0.05)';
+                badge.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            }
+        });
+    }
+
     // Initial setups
     fetchStats();
     setInterval(fetchStats, 2000);
+    setInterval(fetchLogs, 2000);
 });

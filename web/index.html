@@ -206,7 +206,19 @@
                         <h1>System Logs</h1>
                         <p class="subtitle">Live standard output tailing from FFmpeg</p>
                     </div>
-                    <div class="status-badge"><span class="pulse"></span> Active</div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <label class="toggle-switch"
+                            style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <span style="color: var(--text-secondary); font-size: 0.9rem;">Live Updates</span>
+                            <div style="position: relative;">
+                                <input type="checkbox" id="live-log-toggle" checked
+                                    style="opacity: 0; width: 0; height: 0; position: absolute;">
+                                <span class="slider round"
+                                    style="position: relative; display: inline-block; width: 40px; height: 20px; background-color: var(--accent-primary); border-radius: 20px; transition: .4s;"></span>
+                            </div>
+                        </label>
+                        <div class="status-badge" id="log-status-badge"><span class="pulse"></span> Active</div>
+                    </div>
                 </header>
                 <div class="card" style="flex: 1; display: flex; flex-direction: column;">
                     <pre class="log-container" id="terminal-output">
