@@ -129,27 +129,60 @@ document.addEventListener('DOMContentLoaded', () => {
             if (items.length === 0) {
                 convertingList.innerHTML = `
                     <div class="empty-state">
-                        <i class="fa-solid fa-check-circle"></i>
-                        <p>Queue is empty</p>
+                        <i class="fa-solid fa-mug-hot"></i>
+                        <p>No active conversions right now</p>
                     </div>
                 `;
             } else {
-                convertingList.innerHTML = items.map(item => `
-                    <div class="converting-item">
-                        <div class="item-icon"><i class="fa-solid ${getIconForMedia(item.type)}"></i></div>
-                        <div class="item-details">
-                            <div class="item-name" title="${item.file}">${item.file}</div>
-                            <div class="item-meta">Type: <span class="badge type-${item.type}">${item.type}</span></div>
-                        </div>
-                        <div class="item-status" style="width: 150px; text-align: right;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem;">
-                                <span><i class="fa-solid fa-gear fa-spin" style="margin-right: 4px;"></i> Converting</span>
-                                <span>${item.progress || 0}%</span>
+                // Remove empty state if present
+                const emptyState = convertingList.querySelector('.empty-state');
+                if (emptyState) emptyState.remove();
+
+                // Track active file names to remove stale UI elements
+                const activeFiles = new Set(items.map(i => i.file));
+
+                // Remove DOM elements not in current activeFiles
+                Array.from(convertingList.children).forEach(child => {
+                    const fileAttr = child.getAttribute('data-file');
+                    if (fileAttr && !activeFiles.has(fileAttr)) {
+                        child.remove();
+                    }
+                });
+
+                // Update existing or append new
+                items.forEach(item => {
+                    // Escape file name for query selector
+                    const escapedFile = item.file.replace(/"/g, '\\"');
+                    let child = convertingList.querySelector(`[data-file="${escapedFile}"]`);
+                    const progressVal = item.progress || 0;
+
+                    if (!child) {
+                        child = document.createElement('div');
+                        child.className = 'converting-item';
+                        child.setAttribute('data-file', item.file);
+                        child.innerHTML = `
+                            <div class="item-icon"><i class="fa-solid ${getIconForMedia(item.type)}"></i></div>
+                            <div class="item-details">
+                                <div class="item-name" title="${item.file.replace(/"/g, '&quot;')}">${item.file}</div>
+                                <div class="item-meta">Type: <span class="badge type-${item.type.toLowerCase()}">${item.type}</span></div>
                             </div>
-                            <div class="stat-prog" style="height: 6px; margin-top: 4px;"><div class="stat-bar primary-bg" style="width: ${item.progress || 0}%"></div></div>
-                        </div>
-                    </div>
-                `).join('');
+                            <div class="item-status" style="width: 150px; text-align: right;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.85rem;">
+                                    <span><i class="fa-solid fa-gear fa-spin" style="margin-right: 4px;"></i> Converting</span>
+                                    <span class="prog-text">${progressVal}%</span>
+                                </div>
+                                <div class="stat-prog" style="height: 6px; margin-top: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden;">
+                                    <div class="stat-bar primary-bg prog-bar" style="width: ${progressVal}%; height: 100%; transition: width 0.4s ease; background: var(--accent-primary);"></div>
+                                </div>
+                            </div>
+                        `;
+                        convertingList.appendChild(child);
+                    } else {
+                        // Just update the progress texts and widths
+                        child.querySelector('.prog-text').innerText = `${progressVal}%`;
+                        child.querySelector('.prog-bar').style.width = `${progressVal}%`;
+                    }
+                });
             }
         } catch (err) {
             console.error("Failed to fetch stats:", err);
