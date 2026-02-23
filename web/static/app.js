@@ -385,73 +385,186 @@ document.addEventListener('DOMContentLoaded', () => {
         movie_resolution: "The maximum bounding resolution for Movie formats. Larger media scales down, smaller media remains untouched.",
         scale_filter: "The algorithmic method used for resizing pixels. Bilinear is fast but blurry. Bicubic is smooth and balanced. Lanczos is sharp but requires higher processing power.",
         deinterlace: "Runs the Yadif deinterlacing filter over the video. Enable this if ripping old DVD or broadcast footage containing horizontal scanlines.",
-        dry_run: "Simulates the FFmpeg workflow without executing it. Output sizes are mocked."
+        dry_run: "Simulates the FFmpeg workflow without executing it. Output sizes are mocked.",
+        global_webhook_url: "A URL that receives a POST request when ANY conversion finishes.",
+        plex_url: "The root URL of your Plex Media Server (e.g. http://192.168.1.50:32400).",
+        plex_token: "Your Plex validation token used to authorize the library scan.",
+        scan_interval_seconds: "How often (in seconds) the background loop forces a full directory scan, regardless of file events.",
+        max_concurrent_encodes: "Maximum number of simultaneous FFmpeg processes allowed.",
+        use_watchdog: "Use live filesystem monitoring instead of only relying on the interval scan. (Highly Recommended)"
+    };
+
+    const SETTINGS_GROUPS = {
+        "Scanning & Folders": ["parent_directory", "tv_show_keywords", "movie_keywords", "music_keywords"],
+        "Video Encoding": ["video_codec", "ffmpeg_preset", "video_profile", "ffmpeg_crf", "ffmpeg_tune", "tv_resolution", "movie_resolution", "scale_filter", "deinterlace"],
+        "Audio Encoding": ["audio_codec_video", "audio_bitrate_video", "audio_channels", "audio_codec_music", "music_bitrate"],
+        "Global Settings": ["dry_run", "global_webhook_url", "scan_interval_seconds", "max_concurrent_encodes", "use_watchdog"],
+        "Plex Integration": ["plex_url", "plex_token"]
     };
 
     function renderSettingsForm(config) {
         const form = document.getElementById('settings-form');
         form.innerHTML = '';
 
-        // Configuration options grouped by type implicitly by UI rendering
-        for (const [key, value] of Object.entries(config)) {
-            const title = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-            const tooltipHTML = TOOLTIPS[key] ? `<span class="tooltip"><i class="fa-solid fa-circle-question"></i><span class="tooltip-text">${TOOLTIPS[key]}</span></span>` : '';
+        // Keep track of keys we've rendered so we can throw any new ones into an "Other" panel
+        const renderedKeys = new Set();
 
-            const group = document.createElement('div');
-            group.className = 'form-group';
+        for (const [groupName, keys] of Object.entries(SETTINGS_GROUPS)) {
+            // Check if any keys in this group actually exist in the config
+            const keysInConfig = keys.filter(k => config.hasOwnProperty(k));
+            if (keysInConfig.length === 0) continue;
 
-            if (typeof value === 'boolean') {
-                group.innerHTML = `
-                    <label class="checkbox-label" for="setting-${key}" style="display: flex; align-items: center;">
-                        <input type="checkbox" id="setting-${key}" name="${key}" ${value ? 'checked' : ''}>
-                        <span style="font-size: 0.95rem; color: var(--text-primary); font-weight: 500">${title}</span>
-                        ${tooltipHTML}
-                    </label>
-                `;
-            } else if (Array.isArray(value)) {
-                group.innerHTML = `
-                    <label for="setting-${key}">${title} (comma-separated) ${tooltipHTML}</label>
-                    <input type="text" id="setting-${key}" name="${key}" value="${value.join(', ')}">
-                `;
-            } else if (OPTIONS_SCHEMA[key]) {
-                const optionsHTML = OPTIONS_SCHEMA[key].map(opt => {
-                    const val = typeof opt === 'string' ? opt : opt.val;
-                    const lbl = typeof opt === 'string' ? opt : opt.lbl;
-                    return `<option value="${val}" ${value === val ? 'selected' : ''}>${lbl}</option>`;
-                }).join('');
+            const panel = document.createElement('div');
+            panel.className = 'panel';
+            panel.style.marginBottom = '20px';
 
-                group.innerHTML = `
-                    <label for="setting-${key}">${title} ${tooltipHTML}</label>
-                    <select id="setting-${key}" name="${key}">
-                        ${optionsHTML}
-                    </select>
+            const header = document.createElement('div');
+            header.className = 'panel-header';
+            header.innerHTML = `<h2>${groupName}</h2>`;
+            panel.appendChild(header);
+
+            const grid = document.createElement('div');
+            grid.style.display = 'grid';
+            grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+            grid.style.gap = '15px';
+
+            keysInConfig.forEach(key => {
+                const value = config[key];
+                const group = createFormGroup(key, value);
+                grid.appendChild(group);
+                renderedKeys.add(key);
+            });
+
+            // Special case logic for Plex Integration: append test button
+            if (groupName === "Plex Integration") {
+                const buttonWrapper = document.createElement('div');
+                buttonWrapper.className = 'form-group';
+                buttonWrapper.style.display = 'flex';
+                buttonWrapper.style.alignItems = 'flex-end';
+                buttonWrapper.innerHTML = `
+                    <button type="button" id="test-plex-btn" class="btn-primary" style="margin-top: auto;">
+                        <i class="fa-solid fa-plug"></i> Test Connection
+                    </button>
                 `;
-            } else if (key === 'ffmpeg_crf') {
-                group.innerHTML = `
-                    <label for="setting-${key}">${title} (0-51, lower = better quality) ${tooltipHTML}</label>
-                    <input type="number" id="setting-${key}" name="${key}" value="${value}" min="0" max="51">
-                `;
-            } else if (key === 'parent_directory') {
-                group.innerHTML = `
-                    <label for="setting-${key}">${title} ${tooltipHTML}</label>
-                    <div class="input-with-button">
-                        <input type="text" id="setting-${key}" name="${key}" value="${value}">
-                        <button type="button" class="btn-icon" onclick="openFolderBrowser()"><i class="fa-solid fa-folder-open"></i> Browse...</button>
-                    </div>
-                `;
-            } else if (typeof value === 'number') {
-                group.innerHTML = `
-                    <label for="setting-${key}">${title} ${tooltipHTML}</label>
-                    <input type="number" id="setting-${key}" name="${key}" value="${value}">
-                `;
-            } else {
-                group.innerHTML = `
-                    <label for="setting-${key}">${title} ${tooltipHTML}</label>
-                    <input type="text" id="setting-${key}" name="${key}" value="${value}">
-                `;
+                grid.appendChild(buttonWrapper);
             }
-            form.appendChild(group);
+
+            panel.appendChild(grid);
+            form.appendChild(panel);
         }
+
+        // Catch-all for any config variables not explicitly grouped
+        const otherKeys = Object.keys(config).filter(k => !renderedKeys.has(k));
+        if (otherKeys.length > 0) {
+            const panel = document.createElement('div');
+            panel.className = 'panel';
+            panel.style.marginBottom = '20px';
+            panel.innerHTML = `<div class="panel-header"><h2>Other Settings</h2></div>`;
+
+            const grid = document.createElement('div');
+            grid.style.display = 'grid';
+            grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(300px, 1fr))';
+            grid.style.gap = '15px';
+
+            otherKeys.forEach(key => {
+                const group = createFormGroup(key, config[key]);
+                grid.appendChild(group);
+            });
+            panel.appendChild(grid);
+            form.appendChild(panel);
+        }
+
+        // Attach event listener for the dynamic Plex test button
+        const testPlexBtn = document.getElementById('test-plex-btn');
+        if (testPlexBtn) {
+            testPlexBtn.addEventListener('click', async () => {
+                const url = document.getElementById('setting-plex_url').value;
+                const token = document.getElementById('setting-plex_token').value;
+
+                const origText = testPlexBtn.innerHTML;
+                testPlexBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
+
+                try {
+                    const res = await fetch('/api/plex/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ plex_url: url, plex_token: token })
+                    });
+                    const data = await res.json();
+
+                    if (data.status === 'success') {
+                        showToast(data.message, false);
+                    } else {
+                        showToast(data.message, true);
+                    }
+                } catch (err) {
+                    showToast("Failed to connect to backend", true);
+                } finally {
+                    testPlexBtn.innerHTML = origText;
+                }
+            });
+        }
+    }
+
+    function createFormGroup(key, value) {
+        const title = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const tooltipHTML = TOOLTIPS[key] ? `<span class="tooltip"><i class="fa-solid fa-circle-question"></i><span class="tooltip-text">${TOOLTIPS[key]}</span></span>` : '';
+
+        const group = document.createElement('div');
+        group.className = 'form-group';
+
+        if (typeof value === 'boolean') {
+            group.style.justifyContent = 'center';
+            group.innerHTML = `
+                <label class="checkbox-label" for="setting-${key}" style="display: flex; align-items: center;">
+                    <input type="checkbox" id="setting-${key}" name="${key}" ${value ? 'checked' : ''}>
+                    <span style="font-size: 0.95rem; color: var(--text-primary); font-weight: 500">${title}</span>
+                    ${tooltipHTML}
+                </label>
+            `;
+        } else if (Array.isArray(value)) {
+            group.innerHTML = `
+                <label for="setting-${key}">${title} (comma-separated) ${tooltipHTML}</label>
+                <input type="text" id="setting-${key}" name="${key}" value="${value.join(', ')}">
+            `;
+        } else if (OPTIONS_SCHEMA[key]) {
+            const optionsHTML = OPTIONS_SCHEMA[key].map(opt => {
+                const val = typeof opt === 'string' ? opt : opt.val;
+                const lbl = typeof opt === 'string' ? opt : opt.lbl;
+                return `<option value="${val}" ${value === val ? 'selected' : ''}>${lbl}</option>`;
+            }).join('');
+
+            group.innerHTML = `
+                <label for="setting-${key}">${title} ${tooltipHTML}</label>
+                <select id="setting-${key}" name="${key}">
+                    ${optionsHTML}
+                </select>
+            `;
+        } else if (key === 'ffmpeg_crf') {
+            group.innerHTML = `
+                <label for="setting-${key}">${title} (0-51) ${tooltipHTML}</label>
+                <input type="number" id="setting-${key}" name="${key}" value="${value}" min="0" max="51">
+            `;
+        } else if (key === 'parent_directory') {
+            group.innerHTML = `
+                <label for="setting-${key}">${title} ${tooltipHTML}</label>
+                <div class="input-with-button">
+                    <input type="text" id="setting-${key}" name="${key}" value="${value}">
+                    <button type="button" class="btn-icon" onclick="openFolderBrowser()" title="Browse Directory"><i class="fa-solid fa-folder-open"></i></button>
+                </div>
+            `;
+        } else if (typeof value === 'number') {
+            group.innerHTML = `
+                <label for="setting-${key}">${title} ${tooltipHTML}</label>
+                <input type="number" id="setting-${key}" name="${key}" value="${value}">
+            `;
+        } else {
+            group.innerHTML = `
+                <label for="setting-${key}">${title} ${tooltipHTML}</label>
+                <input type="text" id="setting-${key}" name="${key}" value="${value}">
+            `;
+        }
+        return group;
     }
 
     // Save Settings

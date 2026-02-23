@@ -9,6 +9,8 @@ import queue
 import uvicorn
 import psutil
 import re
+import urllib.request
+import urllib.error
 from collections import deque
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
@@ -69,7 +71,12 @@ def load_config():
         "movie_resolution": "1920x1080",
         "scale_filter": "bicubic",
         "deinterlace": False,
-        "dry_run": True
+        "dry_run": True,
+        "plex_url": "",
+        "plex_token": "",
+        "scan_interval_seconds": 3600,
+        "max_concurrent_encodes": 1,
+        "use_watchdog": True
     }
     
     if not os.path.exists(CONFIG_FILE):
@@ -172,6 +179,29 @@ def api_set_config(new_config: dict):
     config_updated_event.set()
     return {"status": "success"}
 
+@app.post("/api/plex/test")
+def api_test_plex(payload: dict):
+    url = payload.get("plex_url", "").strip()
+    token = payload.get("plex_token", "").strip()
+    
+    if not url or not token:
+        return {"status": "error", "message": "Plex URL and Token are required."}
+        
+    url = url.rstrip('/')
+    refresh_url = f"{url}/library/sections/all/refresh?X-Plex-Token={token}"
+    
+    try:
+        req = urllib.request.Request(refresh_url, method="GET")
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status in (200, 201, 204):
+                return {"status": "success", "message": "Successfully connected to Plex and triggered scan."}
+            else:
+                return {"status": "error", "message": f"Plex returned unexpected status code: {response.status}"}
+    except urllib.error.URLError as e:
+        return {"status": "error", "message": f"Failed to connect to Plex: {str(e.reason)}"}
+    except Exception as e:
+        return {"status": "error", "message": f"Error: {str(e)}"}
+
 is_paused = False
 active_processes = {}
 
@@ -230,6 +260,30 @@ def api_get_folders(path: str = None):
 app.mount("/static", StaticFiles(directory="web/static"), name="static")
 
 # --- Core Logic ---
+
+def notify_plex(config):
+    url = config.get("plex_url", "").strip()
+    token = config.get("plex_token", "").strip()
+    
+    if not url or not token:
+        return
+        
+    url = url.rstrip('/')
+    # Plex API endpoint for refreshing all libraries
+    refresh_url = f"{url}/library/sections/all/refresh?X-Plex-Token={token}"
+    
+    logging.info(f"Triggering Plex library update at {url}...")
+    try:
+        req = urllib.request.Request(refresh_url, method="GET")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            if response.status in (200, 201, 204):
+                logging.info("Plex library update triggered successfully.")
+            else:
+                logging.warning(f"Plex update returned unexpected status: {response.status}")
+    except urllib.error.URLError as e:
+        logging.error(f"Failed to connect to Plex: {e}")
+    except Exception as e:
+        logging.error(f"Error while notifying Plex: {e}")
 def get_media_type(file_path, config):
     ext = os.path.splitext(file_path)[1].lower()
     path_lower = file_path.lower()
@@ -446,68 +500,127 @@ def convert_media(file_path, media_type, config):
         time.sleep(2) 
         log_conversion(file_name, media_type, orig_size, orig_size, "success (dry-run)")
         if file_path in current_converting: del current_converting[file_path]
-        logging.info(f"DRY RUN: Completed simulation of {file_name}")
+        notify_plex(config)
         return True
+    
+    # Check pause status right before starting encode
+    while is_paused:
+        if file_path in current_converting:
+            current_converting[file_path]['progress'] = "Paused"
+        time.sleep(2)
 
     try:
-        total_duration = get_media_duration(file_path)
+        logging.info(f"Starting conversion of {file_name}")
         
-        logging.info(f"Starting actual conversion: {file_name}")
-        logging.info(f"FFmpeg pipeline: {' '.join(cmd)}")
+        # Start the process without capture_output so we can read line by line
+        # Use stderr=subprocess.PIPE because ffmpeg logs to stderr
+        process = subprocess.Popen(
+            cmd, 
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            bufsize=1, # Line buffered
+            # Needed on Windows to hide console, harmless on Linux
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        )
         
-        process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         active_processes[file_path] = process
         
-        while True:
-            line = process.stderr.readline()
-            if not line and process.poll() is not None:
-                break
+        # Determine duration for progress calc
+        duration_secs = 0
+        if media_type != 'audio':
+             duration_secs = get_media_duration(file_path)
+
+        # Read stderr line by line
+        for line in process.stderr:
+            # Check for pause state during conversion
+            while is_paused:
+                if process.poll() is None:
+                    try:
+                        # Suspend process on supported platforms
+                        if hasattr(psutil.Process, 'suspend'):
+                            psutil.Process(process.pid).suspend()
+                        if file_path in current_converting:
+                            current_converting[file_path]['progress'] = "Paused"
+                    except Exception:
+                        pass
+                time.sleep(2)
                 
-            if "time=" in line and total_duration > 0:
-                match = re.search(r"time=(\d{2}:\d{2}:\d{2}\.\d{2})", line)
-                if match:
-                    current_s = parse_ffmpeg_time(match.group(1))
-                    progress = int((current_s / total_duration) * 100)
-                    if file_path in current_converting:
-                        current_converting[file_path]["progress"] = min(100, max(0, progress))
-            
-            clean_line = line.strip()
-            # Only trace non-empty lines that aren't the rapid constant frame updates
-            if clean_line and not clean_line.startswith("frame=") and not clean_line.startswith("size="):
-                logging.info(f"[FFMPEG] {clean_line}")
-                        
-        if process.returncode != 0:
-            # -15 normally means SIGTERM (Killed by cancel API)
-            if process.returncode == -15 or process.returncode == 255: # Windows / Unix kill variances
-                raise KeyboardInterrupt("Cancelled by user")
-            raise subprocess.CalledProcessError(process.returncode, cmd)
+            # Resume process if it was paused
+            if not is_paused and process.poll() is None:
+                 try:
+                     if hasattr(psutil.Process, 'resume'):
+                         psutil.Process(process.pid).resume()
+                 except Exception:
+                     pass
+
+            # Update progress
+            if duration_secs > 0 and file_path in current_converting:
+                # Look for time=00:00:00.00
+                time_match = re.search(r"time=(\d{2}:\d{2}:\d{2}\.\d{2})", line)
+                if time_match:
+                    current_secs = parse_ffmpeg_time(time_match.group(1))
+                    progress = min(100, int((current_secs / duration_secs) * 100))
+                    current_converting[file_path]['progress'] = progress
+                    
+                    # Also log to main logger so it appears in UI logs viewer occasionally
+                    if progress % 10 == 0:
+                        logging.info(f"[{file_name}] Conversion progress: {progress}%")
+
+        # Wait for finish
+        process.wait()
         
-        if file_path != final_file:
+        # Check if process was cancelled (killed)
+        if hasattr(process, '_cancelled') and process._cancelled:
+           logging.info(f"Conversion cancelled for: {file_name}")
+           # Clean up temp file
+           if os.path.exists(tmp_file):
+               try: os.remove(tmp_file)
+               except: pass
+               
+           if file_path in current_converting: 
+                del current_converting[file_path]
+           if file_path in active_processes:
+                del active_processes[file_path]
+           return False
+
+        if process.returncode == 0:
+            new_size = os.path.getsize(tmp_file)
+            
+            # Additional check: Did the file actually get smaller?
+            if media_type != 'audio' and new_size >= orig_size:
+                # Video didn't get smaller. Discard temp file.
+                logging.info(f"{file_name} conversion resulted in a larger file ({new_size} >= {orig_size}). Keeping original.")
+                os.remove(tmp_file)
+                log_conversion(file_name, media_type, orig_size, orig_size, "skipped (larger)")
+                if file_path in current_converting: del current_converting[file_path]
+                if file_path in active_processes: del active_processes[file_path]
+                return True # Technically a success, just didn't replace
+            
+            # File is smaller or is audio, proceed with replace
             os.remove(file_path)
+            os.rename(tmp_file, final_file)
             
-        os.rename(tmp_file, final_file)
-        
-        new_size = os.path.getsize(final_file)
-        log_conversion(file_name, media_type, orig_size, new_size, "success")
-        
-        if file_path in current_converting: del current_converting[file_path]
-        if file_path in active_processes: del active_processes[file_path]
-        return True
-    except KeyboardInterrupt as e:
-        if os.path.exists(tmp_file): os.remove(tmp_file)
-        logging.info(f"Process cancelled for {file_name}: {e}")
-        if file_path in current_converting: del current_converting[file_path]
-        if file_path in active_processes: del active_processes[file_path]
-        return False
-    except subprocess.CalledProcessError as e:
-        if os.path.exists(tmp_file): os.remove(tmp_file)
-        log_conversion(file_name, media_type, orig_size, 0, "error", str(e))
-        if file_path in current_converting: del current_converting[file_path]
-        if file_path in active_processes: del active_processes[file_path]
-        return False
+            logging.info(f"Finished {file_name}. Original: {orig_size}, New: {new_size}")
+            log_conversion(file_name, media_type, orig_size, new_size, "success")
+            notify_plex(config)
+            
+            if file_path in current_converting: del current_converting[file_path]
+            if file_path in active_processes: del active_processes[file_path]
+            return True
+            
+        else:
+            logging.error(f"Error converting {file_name}. Code {process.returncode}")
+            log_conversion(file_name, media_type, orig_size, 0, f"failed (code {process.returncode})")
+            if os.path.exists(tmp_file):
+                os.remove(tmp_file)
+            if file_path in current_converting: del current_converting[file_path]
+            if file_path in active_processes: del active_processes[file_path]
+            return False
+
     except Exception as e:
-        if os.path.exists(tmp_file): os.remove(tmp_file)
-        log_conversion(file_name, media_type, orig_size, 0, "error", str(e))
+        logging.error(f"Exception formatting {file_name}: {str(e)}")
+        log_conversion(file_name, media_type, orig_size, 0, "error")
         if file_path in current_converting: del current_converting[file_path]
         if file_path in active_processes: del active_processes[file_path]
         return False
